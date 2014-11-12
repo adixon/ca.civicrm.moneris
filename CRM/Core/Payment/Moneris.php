@@ -59,8 +59,8 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $this->_processorName = ts('Moneris');
 
     // require moneris supplied api library
-    if ((include_once 'Services/mpgClasses.php') === FALSE) {
-      CRM_Core_Error::fatal(ts('Please download and put the Moneris mpgClasses.php file in packages/Services directory to enable Moneris Support.'));
+    if ((include_once 'packages/Moneris/mpgClasses.php') === FALSE) {
+      CRM_Core_Error::fatal(ts('Please download and put the Moneris mpgClasses.php file in packages/Moneris directory to enable Moneris Support.'));
     }
 
     // get merchant data from config
