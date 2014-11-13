@@ -109,5 +109,5 @@ function moneris_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 
 function _moneris_civicrm_nscd_fid() {
   $codeVer = CRM_Utils_System::version();
-  return (version_compare($codeVer, '4.4') < 0) 'next_sched_contribution' : 'next_sched_contribution_date';
+  return (version_compare($codeVer, '4.4') < 0) ? 'next_sched_contribution' : 'next_sched_contribution_date';
 }

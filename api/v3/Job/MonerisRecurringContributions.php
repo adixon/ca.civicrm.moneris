@@ -44,7 +44,8 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
   $expiry_limit = date('ym');
   // restrict this method of recurring contribution processing to only this payment processor
   $args = array(
-    1 => array('Moneris', 'String'),
+    1 => array('Payment_Moneris', 'String'),
+    2 => array('Payment_Dummy', 'String'),
   );
   // Before triggering payments, we need to do some housekeeping of the civicrm_contribution_recur records.
   // First update the end_date and then the complete/in-progress values.
@@ -52,12 +53,12 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
   // to deal with the possibility that the settings for the number of payments (installments) for an existing record has changed.
 
   // First check for recur end date values on non-open-ended recurring contribution records that are either complete or in-progress
-  $select = 'SELECT cr.id, count(c.id) AS installments_done, cr.installments, cr.end_date, NOW() as test_now 
+  $select = 'SELECT cr.id, count(c.id) AS installments_done, cr.installments, cr.end_date, NOW() as test_now
       FROM civicrm_contribution_recur cr 
       INNER JOIN civicrm_contribution c ON cr.id = c.contribution_recur_id 
       INNER JOIN civicrm_payment_processor pp ON cr.payment_processor_id = pp.id 
       WHERE 
-        (pp.class_name = %1) 
+        (pp.class_name = %1 OR pp.class_name = %2) 
         AND (cr.installments > 0) 
         AND (cr.contribution_status_id IN (1,5)) 
       GROUP BY c.contribution_recur_id';
@@ -87,7 +88,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       WHERE
         cr.contribution_status_id IN (1,5) 
         AND NOT(cr.installments > 0)
-        AND (pp.class_name = %1)
+        AND (pp.class_name = %1 OR pp.class_name = %2)
         AND NOT(ISNULL(cr.end_date))';
   $dao = CRM_Core_DAO::executeQuery($update,$args);
   
@@ -99,7 +100,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
         cr.contribution_status_id = 5 
       WHERE
         cr.contribution_status_id = 1 
-        AND (pp.class_name = %1)
+        AND (pp.class_name = %1 OR pp.class_name = %2)
         AND (cr.end_date IS NULL OR cr.end_date > NOW())';
   $dao = CRM_Core_DAO::executeQuery($update,$args);
   // Expire completed cycles
@@ -109,7 +110,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
         cr.contribution_status_id = 1 
       WHERE
         cr.contribution_status_id = 5 
-        AND (pp.class_name = %1)
+        AND (pp.class_name = %1 OR pp.class_name = %2)
         AND (NOT(cr.end_date IS NULL) AND cr.end_date <= NOW())';
   $dao = CRM_Core_DAO::executeQuery($update,$args);
 
@@ -120,7 +121,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       INNER JOIN civicrm_payment_processor pp ON cr.payment_processor_id = pp.id
       WHERE 
         cr.contribution_status_id = 5
-        AND (pp.class_name = %1)';
+        AND (pp.class_name = %1 OR pp.class_name = %2)';
   //      AND pp.is_test = 0
   if (!empty($params['recur_id'])) { // in case the job was called to execute a specific recurring contribution id -- not yet implemented!
     $select .= ' AND cr.id = %3';
@@ -137,13 +138,12 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
   $counter = 0;
   $error_count  = 0;
   $output  = array();
-
   while ($dao->fetch()) {
-
     // create the contribution record with status = 2 (= pending), and require that an administrator check before confirming they went through
     // First get the first contribution in this series to help with line items and some other values
     $initial_contribution = array();
     $line_items = array();
+    $payment_processor = substr($dao->pp_class_name,8);
     $get = array('version'  => 3, 'contribution_recur_id' => $dao->id, 'options'  => array('sort'  => ' id' , 'limit'  => 1));
     $result = civicrm_api('contribution', 'get', $get);
     if (!empty($result['values'])) {
@@ -164,7 +164,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
     $total_amount = $dao->amount;
     $hash = md5(uniqid(rand(), true));
     $contribution_recur_id    = $dao->id;
-    $source = "Moneris Recurring Contribution (id=$contribution_recur_id)"; 
+    $source = "$payment_processor Recurring Contribution (id=$contribution_recur_id)"; 
     $receive_date = date("YmdHis"); // i.e. now
     // check if we already have an error
     $errors = array();
@@ -178,7 +178,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       'trxn_id'        => $hash, /* placeholder: just something unique that can also be seen as the same as invoice_id */
       'invoice_id'       => $hash,
       'source'         => $source,
-      'contribution_status_id' => 4, /* default is failed, unless we actually take the money successfully */
+      'contribution_status_id' => 2, /* default is pending, needs manual approval later */
       'currency'  => $dao->currency,
       'payment_processor'   => $dao->payment_processor_id,
       'is_test'        => $dao->is_test, /* propagate the is_test value from the parent contribution */
@@ -202,52 +202,11 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
     if (count($errors)) {
       ++$error_count;
       ++$counter;
-      /* create the failed contribution record */
-      $result = civicrm_api('contribution', 'create', $contribution);
-      if ($result['is_error']) {
-        $errors[] = $result['error_message'];
-      }
-      continue;
     }
-    else { 
-      // so far so, good ... now try to trigger the payment on Moneris
-      require_once("CRM/Moneris/MonerisService.php");
-      switch($subtype) {
-        case 'ACHEFT':
-          $method = 'acheft_with_customer_code';
-          break;
-        default:
-          $method = 'cc_with_customer_code';
-          break;
-      }
-      $moneris_service_params = array('method' => $method, 'type' => 'process', 'moneris_domain' => parse_url($dao->url_site, PHP_URL_HOST));
-      $moneris = new Moneris_Service_Request($moneris_service_params);
-      // build the request array
-      $request = array(
-        'customerCode' => $dao->customer_code,
-        'invoiceNum' => $hash,
-        'total' => $total_amount,
-      );
-      $request['customerIPAddress'] = (function_exists('ip_address') ? ip_address() : $_SERVER['REMOTE_ADDR']);
-
-      $credentials = $moneris->credentials($dao->payment_processor_id, $contribution['is_test']);
-      // make the soap request
-      $response = $moneris->request($credentials,$request);
-      // process the soap response into a readable result
-      $result = $moneris->result($response);
-      if (empty($result['status'])) {
-        /* create the contribution record in civicrm with the failed status */
-        $contribution['source'] .= ' '.$result['reasonMessage'];
-        civicrm_api('contribution', 'create', $contribution);
-        $output[] = ts('Failed to process recurring contribution id %1: ', array(1 => $contribution_recur_id)).$result['reasonMessage'];
-      } 
-      else {
-        /* success, create the contribution record with corrected status + trxn_id */
-        $contribution['trxn_id'] = $result['remote_id'] . ':' . time();
-        $contribution['contribution_status_id'] = 1; 
-        civicrm_api('contribution','create', $contribution);
-        $output[] = ts('Successfully processed recurring contribution id %1: ', array(1 => $contribution_recur_id)).$result['auth_result'];
-      }
+    /* create the contribution record */
+    $result = civicrm_api('contribution', 'create', $contribution);
+    if ($result['is_error']) {
+        $errors[] = $result['error_message'];
     }
 
     //$mem_end_date = $member_dao->end_date;
@@ -273,7 +232,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
         'activity_type_id'  => 6,
         'source_contact_id'   => $contact_id,
         'assignee_contact_id' => $contact_id,
-        'subject'       => "Attempted Moneris Payments $subtype Recurring Contribution for " . $total_amount,
+        'subject'       => "Added $payment_processor Payment Recurring Contribution for " . $total_amount,
         'status_id'       => 2,
         'activity_date_time'  => date("YmdHis"),
       )

@@ -11,8 +11,8 @@ return array (
     'params' => 
     array (
       'version' => 3,
-      'name' => 'Call Job.MonerisRecurringContributions API',
-      'description' => 'Call Job.MonerisRecurringContributions API',
+      'name' => 'Moneris Recurring Contributions',
+      'description' => 'Generate contribution records for Moneris PAR',
       'run_frequency' => 'Daily',
       'api_entity' => 'Job',
       'api_action' => 'MonerisRecurringContributions',
