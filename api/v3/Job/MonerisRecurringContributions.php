@@ -139,12 +139,12 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
   $error_count  = 0;
   $output  = array();
   while ($dao->fetch()) {
-    // create the contribution record with status = 2 (= pending), and require that an administrator check before confirming they went through
-    // First get the first contribution in this series to help with line items and some other values
+    // create the contribution record with status = 1 (= complete)
+    // Get the first contribution in this series that matches the same total to help with line items and some other values
     $initial_contribution = array();
     $line_items = array();
     $payment_processor = substr($dao->pp_class_name,8);
-    $get = array('version'  => 3, 'contribution_recur_id' => $dao->id, 'options'  => array('sort'  => ' id' , 'limit'  => 1));
+    $get = array('version'  => 3, 'contribution_recur_id' => $dao->id, 'total_amount' => $dao->amount, 'options'  => array('sort'  => ' id' , 'limit'  => 1));
     $result = civicrm_api('contribution', 'get', $get);
     if (!empty($result['values'])) {
       $contribution_ids = array_keys($result['values']);
@@ -178,7 +178,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       'trxn_id'        => $hash, /* placeholder: just something unique that can also be seen as the same as invoice_id */
       'invoice_id'       => $hash,
       'source'         => $source,
-      'contribution_status_id' => 2, /* default is pending, needs manual approval later */
+      'contribution_status_id' => 1, /* requires an administrator to verify against actual payments, but let's expect the best */
       'currency'  => $dao->currency,
       'payment_processor'   => $dao->payment_processor_id,
       'is_test'        => $dao->is_test, /* propagate the is_test value from the parent contribution */
