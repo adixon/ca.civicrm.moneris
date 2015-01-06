@@ -816,7 +816,7 @@ class mpgCustInfo {
   }
 
   function toXML_low($template, $txnType) {
-
+    $xmlString = '';
     for ($x = 0; $x < count($this->level3data[$txnType]); $x++) {
       if ($x > 0) {
         $xmlString .= "</$txnType><$txnType>";
