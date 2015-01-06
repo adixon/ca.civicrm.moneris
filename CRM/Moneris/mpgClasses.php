@@ -848,7 +848,7 @@ class mpgCustInfo {
           $tag = $template[$keys[$i]];
           $beginTag = "<$tag>";
           $endTag = "</$tag>";
-          $data = $this->level3data[$txnType][$x][$tag];
+          $data = isset($this->level3data[$txnType][$x][$tag]) ? $this->level3data[$txnType][$x][$tag] : '';
 
           $xmlString .= $beginTag . $data . $endTag;
         }
