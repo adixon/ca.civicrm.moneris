@@ -200,12 +200,12 @@ function moneris_civicrm_pre($op, $objectName, $objectId, &$params) {
         case 'ContributionRecur':
           // calculate the date of the next schedule contribution
           $params['contribution_status_id'] = 5;
-          $params['trxn_id'] = NULL;
+          // $params['trxn_id'] = NULL;
           //TODO: next 20th of the month
           // $next = strtotime('+'.$params['frequency_interval'].' '.$params['frequency_unit']);
           // the next scheduled contribution date field name is civicrm version dependent
-          $field_name = _moneris_civicrm_nscd_fid();
-          $params[$field_name] = date('YmdHis',$next);
+          // $field_name = _moneris_civicrm_nscd_fid();
+          // $params[$field_name] = date('YmdHis',$next);
           break;
       }
     }
