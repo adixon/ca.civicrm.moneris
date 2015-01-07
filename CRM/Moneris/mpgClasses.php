@@ -829,7 +829,7 @@ class mpgCustInfo {
         if (is_array($template[$keys[$i]])) {
           $data = $template[$tag];
 
-          if (!count($this->level3data[$tag])) {
+          if (empty($this->level3data[$tag])) {
             continue;
           }
 
@@ -890,6 +890,7 @@ class mpgRecur {
   }
 
   function toXML() {
+    $xmlString = '';
     foreach ($this->recurTemplate as $tag) {
       $xmlString .= "<$tag>" . $this->params[$tag] . "</$tag>";
     }
