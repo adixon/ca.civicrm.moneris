@@ -1,41 +1,21 @@
 <?php
-/*
- +--------------------------------------------------------------------+
- | CiviCRM version 4.3                                                |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2013                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
- |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
- +--------------------------------------------------------------------+
-*/
 
 /**
- *
- * @package CRM
  * @author Alan Dixon
- * @copyright CiviCRM LLC (c) 2004-2013
- * $Id$
+ *
+ * A custom extension to replace the core code Moneris payment processor.
+ * Todo: provide option to use the US mpg version
  *
  */
 class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
-  # (not used, implicit in the API, might need to convert?)
-  CONST CHARSET = 'UFT-8';
+
+  CONST PAYMENT_STATUS_MONERIS_AUTHORISED = 'moneris_authorised';
+  CONST PAYMENT_STATUS_MONERIS_REVERSED = 'moneris_reversed';
+
+  CONST MONERIS_API_TRANSACTION_TYPE_PURCHASE = '00';
+  CONST MONERIS_API_TRANSACTION_TYPE_AUTH = '01';
+  CONST MONERIS_API_TRANSACTION_TYPE_CAPTURE = '02';
+  CONST MONERIS_API_TRANSACTION_TYPE_REFUND = '04';
 
   /**
    * We only need one instance of this object. So we use the singleton
@@ -58,15 +38,10 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $this->_paymentProcessor = $paymentProcessor;
     $this->_processorName = ts('Moneris');
 
-    // require moneris supplied api library
-    if ((include_once 'packages/Moneris/mpgClasses.php') === FALSE) {
-      CRM_Core_Error::fatal(ts('Please download and put the Moneris mpgClasses.php file in packages/Moneris directory to enable Moneris Support.'));
-    }
-
     // get merchant data from config
     $config = CRM_Core_Config::singleton();
     // live or test
-    $this->_profile['mode'] = $mode;
+    $this->_profile['server'] = (('live' == $mode) ? 'prod' : 'test');
     $this->_profile['storeid'] = $this->_paymentProcessor['signature'];
     $this->_profile['apitoken'] = $this->_paymentProcessor['password'];
     $currencyID = $config->defaultCurrency;
@@ -94,6 +69,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
   }
 
   function doDirectPayment(&$params) {
+    watchdog('moneris_civicrm_ca', 'Params: <pre>!params</pre>', array('!params' => print_r($params, TRUE)), WATCHDOG_NOTICE);
     //make sure i've been called correctly ...
     if (!$this->_profile) {
       return self::error('Unexpected error, missing profile');
@@ -101,6 +77,10 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     if ($params['currencyID'] != 'CAD') {
       return self::error('Invalid currency selection, must be $CAD');
     }
+    $isRecur =  CRM_Utils_Array::value('is_recur', $params) && $params['contributionRecurID'];
+    // require moneris supplied api library
+    require_once 'CRM/Moneris/mpgClasses.php';
+
     /* unused params: cvv not yet implemented, payment action ingored (should test for 'Sale' value?)
         [cvv2] => 000
         [ip_address] => 192.168.0.103
@@ -112,12 +92,33 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     //create an mpgCustInfo object
     $mpgCustInfo = new mpgCustInfo();
     //call set methods of the mpgCustinfo object
-    $mpgCustInfo->setEmail($params['email']);
+    if (empty($params['email'])) {
+      if (!empty($params['contactID'])) {
+        $api_request = array('version' => 3, 'sequential' => 1, 'is_billing' => 1, 'id' => $params['contactID']);
+        $result = civicrm_api('Email', 'getsingle', $api_request);
+        if (empty($result['is_error'])) {
+          $email = $result['email'];
+        }
+        else {
+          unset($api_request['is_billing']);
+          $result = civicrm_api('Email', 'get', $api_request);
+          if (!empty($result)) {
+            $email = $result['values'][0]['email'];
+          }
+        }
+      }
+    }
+    else {
+      $email = $params['email'];
+    }
+    if (!empty($email)) {
+      $mpgCustInfo->setEmail($email);
+    }
     //get text representations of province/country to send to moneris for billing info
 
     $billing = array(
-      'first_name' => $params['first_name'],
-      'last_name' => $params['last_name'],
+      'first_name' => $params['billing_first_name'],
+      'last_name' => $params['billing_last_name'],
       'address' => $params['street_address'],
       'city' => $params['city'],
       'province' => $params['state_province'],
@@ -128,7 +129,6 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     // set orderid as invoiceID to help match things up with Moneris later
     $my_orderid = $params['invoiceID'];
     $expiry_string = sprintf('%04d%02d', $params['year'], $params['month']);
-
     $txnArray = array(
       'type' => 'purchase',
       'order_id' => $my_orderid,
@@ -136,9 +136,14 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
       'pan' => $params['credit_card_number'],
       'expdate' => substr($expiry_string, 2, 4),
       'crypt_type' => '7',
-      'cust_id' => $params['contactID'],
+      // 'cust_id' => $params['contactID'],
     );
-
+    // deal with recurring contributions
+    // my first contibution will be only a card verification
+    if ($isRecur) {
+      $txnArray['type'] = 'card_verification';
+      unset($txnArray['amount']);
+    }
     // Allow further manipulation of params via custom hooks
     CRM_Utils_Hook::alterPaymentProcessorParams($this, $params, $txnArray);
 
@@ -148,70 +153,15 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     //use the setCustInfo method of mpgTransaction object to
     //set the customer info (level 3 data) for this transaction
     $mpgTxn->setCustInfo($mpgCustInfo);
-    // add a recurring payment if requested
-    if ($params['is_recur'] && $params['installments'] > 1) {
-      //Recur Variables
-      $recurUnit     = $params['frequency_unit'];
-      $recurInterval = $params['frequency_interval'];
-      $next          = time();
-      $day           = 60 * 60 * 24;
-      switch ($recurUnit) {
-        case 'day':
-          $next += $recurInterval * $day;
-          break;
-
-        case 'week':
-          $next += $recurInterval * $day * 7;
-          break;
-
-        case 'month':
-          $date = getdate();
-          $date['mon'] += $recurInterval;
-          while ($date['mon'] > 12) {
-            $date['mon'] -= 12;
-            $date['year'] += 1;
-          }
-          $next = mktime($date['hours'], $date['minutes'], $date['seconds'], $date['mon'], $date['mday'], $date['year']);
-          break;
-
-        case 'year':
-          $date = getdate();
-          $date['year'] += 1;
-          $next = mktime($date['hours'], $date['minutes'], $date['seconds'], $date['mon'], $date['mday'], $date['year']);
-          break;
-
-        default:
-          die('Unexpected error!');
-      }
-      // next payment in moneris required format
-      $startDate = date("Y/m/d", $next);
-      $numRecurs = $params['installments'] - 1;
-      //$startNow = 'true'; -- setting start now to false will mean the main transaction doesn't happen!
-      $recurAmount = sprintf('%01.2f', $params['amount']);
-      //Create an array with the recur variables
-      // (day | week | month)
-      $recurArray = array(
-        'recur_unit' => $recurUnit,
-        // yyyy/mm/dd
-        'start_date' => $startDate,
-        'num_recurs' => $numRecurs,
-        'start_now' => 'true',
-        'period' => $recurInterval,
-        'recur_amount' => $recurAmount,
-      );
-      $mpgRecur = new mpgRecur($recurArray);
-      // set the Recur Object to mpgRecur
-      $mpgTxn->setRecur($mpgRecur);
-    }
     //create a mpgRequest object passing the transaction object
     $mpgRequest = new mpgRequest($mpgTxn);
-
+    watchdog('moneris_civicrm_ca', 'Request: <pre>!request</pre>', array('!request' => print_r($mpgRequest, TRUE)), WATCHDOG_NOTICE);
     // create mpgHttpsPost object which does an https post ##
-    // [extra parameter added to library by AD]
-    $isProduction = ($this->_profile['mode'] == 'live');
-    $mpgHttpPost = new mpgHttpsPost($this->_profile['storeid'], $this->_profile['apitoken'], $mpgRequest, $isProduction);
+    // extra 'server' parameter added to library 
+    $mpgHttpPost = new mpgHttpsPost($this->_profile['storeid'], $this->_profile['apitoken'], $mpgRequest, $this->_profile['server']);
     // get an mpgResponse object
     $mpgResponse = $mpgHttpPost->getMpgResponse();
+    watchdog('moneris_civicrm_ca', 'Response: <pre>!response</pre>', array('!response' => print_r($mpgResponse, TRUE)), WATCHDOG_NOTICE);
     $params['trxn_result_code'] = $mpgResponse->getResponseCode();
     if (self::isError($mpgResponse)) {
       if ($params['trxn_result_code']) {
@@ -234,6 +184,65 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     // todo: above assignment seems to be ignored, not getting stored in the civicrm_financial_trxn table
     $params['trxn_id'] = $mpgResponse->getTxnNumber();
     $params['gross_amount'] = $mpgResponse->getTransAmount();
+    // add a recurring payment schedule if requested
+    // NOTE: recurring payments will be scheduled for the 20th, TODO: make configurable
+    if ($isRecur) {
+      //Recur Variables
+      $recurUnit     = $params['frequency_unit'];
+      $recurInterval = $params['frequency_interval'];
+      $day           = 60 * 60 * 24;
+      $next          = time();
+      // earliest start date is tomorrow 
+      do {
+        $next = $next + $day;
+        $date = getdate($next);
+      } while ($date['mday'] != 20);
+      // next payment in moneris required format
+      $startDate = date("Y/m/d", $next);
+      $numRecurs = !empty($params['installments']) ? $params['installments'] : 100;
+      //$startNow = 'true'; -- setting start now to false will mean the main transaction doesn't happen!
+      $recurAmount = sprintf('%01.2f', $params['amount']);
+      //Create an array with the recur variables
+      $recurArray = array(
+        'recur_unit' => $recurUnit,
+        'start_date' => $startDate,
+        'num_recurs' => $numRecurs,
+        'start_now' => 'false',
+        'period' => $recurInterval,
+        'recur_amount' => $recurAmount,
+      );
+      $mpgRecur = new mpgRecur($recurArray);
+      $txnArray['type'] = 'purchase';
+      // $txnArray['amount'] = $recurAmount;
+      $mpgTxn = new mpgTransaction($txnArray);
+      // set the Recur Object to mpgRecur
+      $mpgTxn->setRecur($mpgRecur);
+      $mpgRequest = new mpgRequest($mpgTxn);
+      watchdog('moneris_civicrm_ca', 'Request: <pre>!request</pre>', array('!request' => print_r($mpgRequest, TRUE)), WATCHDOG_NOTICE);
+      $mpgHttpPost = new mpgHttpsPost($this->_profile['storeid'], $this->_profile['apitoken'], $mpgRequest, $this->_profile['server']);
+      // get an mpgResponse object
+      $mpgResponse = $mpgHttpPost->getMpgResponse();
+      watchdog('moneris_civicrm_ca', 'Response: <pre>!response</pre>', array('!response' => print_r($mpgResponse, TRUE)), WATCHDOG_NOTICE);
+      $params['trxn_result_code'] = $mpgResponse->getResponseCode();
+      if (self::isError($mpgResponse)) {
+        if ($params['trxn_result_code']) {
+          return self::error($mpgResponse);
+        }
+        else {
+          return self::error('No reply from server - check your settings &/or try again');
+        }
+      }
+      /* Check for application errors */
+      $result = self::checkResult($mpgResponse);
+      if (is_a($result, 'CRM_Core_Error')) {
+        return $result;
+      }
+
+      /* Success */
+      $params['trxn_result_code'] = (integer) $mpgResponse->getResponseCode();
+      $params['trxn_id'] = $mpgResponse->getTxnNumber();
+      $params['gross_amount'] = $mpgResponse->getTransAmount();
+    }
     return $params;
   }
 
