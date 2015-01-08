@@ -6,17 +6,35 @@
 return array (
   0 => 
   array (
-    'name' => 'Cron:Job.MonerisRecurringContributions',
+    'name' => 'Cron:Job.MonerisRecurringContributionsAuto',
     'entity' => 'Job',
     'params' => 
     array (
       'version' => 3,
-      'name' => 'Moneris Recurring Contributions',
-      'description' => 'Generate contribution records for Moneris PAR',
+      'name' => 'Moneris Recurring Contributions Daily Auto-Generate',
+      'description' => 'Auto generate contribution records for Moneris recurring contributions',
       'run_frequency' => 'Daily',
       'api_entity' => 'Job',
       'api_action' => 'MonerisRecurringContributions',
       'parameters' => '',
+      'is_active' => 0,
+    ),
+  ),
+  1 => 
+  array (
+    'name' => 'Cron:Job.MonerisRecurringContributionsManual',
+    'entity' => 'Job',
+    'params' => 
+    array (
+      'version' => 3,
+      'name' => 'Moneris Recurring Contributions Manually Generate',
+      'description' => 'Manually generate contribution records for Moneris recurring contributions over a specific time period.',
+      'run_frequency' => 'Daily',
+      'api_entity' => 'Job',
+      'api_action' => 'MonerisRecurringContributions',
+      'parameters' => 'startDate=yyyy-mm-dd
+endDate=yyyy-mm-dd',
+      'is_active' => 0,
     ),
   ),
 );
