@@ -20,21 +20,4 @@ return array (
       'is_active' => 0,
     ),
   ),
-  1 => 
-  array (
-    'name' => 'Cron:Job.MonerisRecurringContributionsManual',
-    'entity' => 'Job',
-    'params' => 
-    array (
-      'version' => 3,
-      'name' => 'Moneris Recurring Contributions Manually Generate',
-      'description' => 'Manually generate contribution records for Moneris recurring contributions over a specific time period.',
-      'run_frequency' => 'Daily',
-      'api_entity' => 'Job',
-      'api_action' => 'MonerisRecurringContributions',
-      'parameters' => 'startDate=yyyy-mm-dd
-endDate=yyyy-mm-dd',
-      'is_active' => 0,
-    ),
-  ),
 );

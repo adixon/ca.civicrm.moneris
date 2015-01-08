@@ -31,7 +31,6 @@ function _civicrm_api3_job_monerisrecurringcontributions_spec(&$spec) {
  */
 function civicrm_api3_job_monerisrecurringcontributions($params) {
   // TODO: what kind of extra security do we want or need here to prevent it from being triggered inappropriately? Or does it matter?
-
   // the next scheduled contribution date field name is civicrm version dependent
   define('MONERIS_CIVICRM_NSCD_FID',_moneris_civicrm_nscd_fid());
   // $config = &CRM_Core_Config::singleton();
@@ -45,7 +44,6 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
   // restrict this method of recurring contribution processing to only this payment processor
   $args = array(
     1 => array('Payment_Moneris', 'String'),
-    2 => array('Payment_Dummy', 'String'),
   );
   // Before triggering payments, we need to do some housekeeping of the civicrm_contribution_recur records.
   // First update the end_date and then the complete/in-progress values.
@@ -58,7 +56,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       INNER JOIN civicrm_contribution c ON cr.id = c.contribution_recur_id 
       INNER JOIN civicrm_payment_processor pp ON cr.payment_processor_id = pp.id 
       WHERE 
-        (pp.class_name = %1 OR pp.class_name = %2) 
+        (pp.class_name = %1)
         AND (cr.installments > 0) 
         AND (cr.contribution_status_id IN (1,5)) 
       GROUP BY c.contribution_recur_id';
@@ -88,7 +86,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       WHERE
         cr.contribution_status_id IN (1,5) 
         AND NOT(cr.installments > 0)
-        AND (pp.class_name = %1 OR pp.class_name = %2)
+        AND (pp.class_name = %1)
         AND NOT(ISNULL(cr.end_date))';
   $dao = CRM_Core_DAO::executeQuery($update,$args);
   
@@ -100,7 +98,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
         cr.contribution_status_id = 5 
       WHERE
         cr.contribution_status_id = 1 
-        AND (pp.class_name = %1 OR pp.class_name = %2)
+        AND (pp.class_name = %1)
         AND (cr.end_date IS NULL OR cr.end_date > NOW())';
   $dao = CRM_Core_DAO::executeQuery($update,$args);
   // Expire completed cycles
@@ -110,7 +108,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
         cr.contribution_status_id = 1 
       WHERE
         cr.contribution_status_id = 5 
-        AND (pp.class_name = %1 OR pp.class_name = %2)
+        AND (pp.class_name = %1)
         AND (NOT(cr.end_date IS NULL) AND cr.end_date <= NOW())';
   $dao = CRM_Core_DAO::executeQuery($update,$args);
 
@@ -121,16 +119,16 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       INNER JOIN civicrm_payment_processor pp ON cr.payment_processor_id = pp.id
       WHERE 
         cr.contribution_status_id = 5
-        AND (pp.class_name = %1 OR pp.class_name = %2)';
+        AND (pp.class_name = %1)';
   //      AND pp.is_test = 0
   if (!empty($params['recur_id'])) { // in case the job was called to execute a specific recurring contribution id -- not yet implemented!
-    $select .= ' AND cr.id = %3';
-    $args[3] = array($params['recur_id'], 'Int');
+    $select .= ' AND cr.id = %2';
+    $args[2] = array($params['recur_id'], 'Int');
   }
   else { // if (!empty($params['scheduled'])) { 
     //normally, process all recurring contributions due today or earlier
-    $select .= ' AND cr.'.MONERIS_CIVICRM_NSCD_FID.' <= %3';
-    $args[3] = array($dtCurrentDayEnd, 'String');
+    $select .= ' AND cr.'.MONERIS_CIVICRM_NSCD_FID.' <= %2';
+    $args[2] = array($dtCurrentDayEnd, 'String');
     // ' AND cr.next_sched_contribution >= %2 
     // $args[2] = array($dtCurrentDayStart, 'String');
   }
@@ -203,6 +201,8 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       ++$error_count;
       ++$counter;
     }
+    // Allow further manipulation of params via custom hooks
+    // CRM_Utils_Hook::alterPaymentProcessorParams($this, $params, $txnArray);
     /* create the contribution record */
     $result = civicrm_api('contribution', 'create', $contribution);
     if ($result['is_error']) {
