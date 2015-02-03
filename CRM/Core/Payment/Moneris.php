@@ -94,7 +94,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     //call set methods of the mpgCustinfo object
     if (empty($params['email'])) {
       if (!empty($params['contactID'])) {
-        $api_request = array('version' => 3, 'sequential' => 1, 'is_billing' => 1, 'id' => $params['contactID']);
+        $api_request = array('version' => 3, 'sequential' => 1, 'is_billing' => 1, 'contact_id' => $params['contactID']);
         $result = civicrm_api('Email', 'getsingle', $api_request);
         if (empty($result['is_error'])) {
           $email = $result['email'];
