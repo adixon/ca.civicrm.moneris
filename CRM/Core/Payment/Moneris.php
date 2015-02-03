@@ -200,7 +200,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
       } while ($date['mday'] != 20);
       // next payment in moneris required format
       $startDate = date("Y/m/d", $next);
-      $numRecurs = !empty($params['installments']) ? $params['installments'] : 100;
+      $numRecurs = !empty($params['installments']) ? $params['installments'] : 99;
       //$startNow = 'true'; -- setting start now to false will mean the main transaction doesn't happen!
       $recurAmount = sprintf('%01.2f', $amount);
       //Create an array with the recur variables
@@ -211,6 +211,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
         'start_now' => 'false',
         'period' => $recurInterval,
         'recur_amount' => $recurAmount,
+        'amount' => $recurAmount,
       );
       $mpgRecur = new mpgRecur($recurArray);
       $txnArray['type'] = 'purchase';
