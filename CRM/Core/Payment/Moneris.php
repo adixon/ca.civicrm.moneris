@@ -129,10 +129,11 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     // set orderid as invoiceID to help match things up with Moneris later
     $my_orderid = $params['invoiceID'];
     $expiry_string = sprintf('%04d%02d', $params['year'], $params['month']);
+    $amount = CRM_Utils_Rule::cleanMoney($params['amount']);
     $txnArray = array(
       'type' => 'purchase',
       'order_id' => $my_orderid,
-      'amount' => sprintf('%01.2f', $params['amount']),
+      'amount' => sprintf('%01.2f', $amount),
       'pan' => $params['credit_card_number'],
       'expdate' => substr($expiry_string, 2, 4),
       'crypt_type' => '7',
@@ -201,7 +202,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
       $startDate = date("Y/m/d", $next);
       $numRecurs = !empty($params['installments']) ? $params['installments'] : 100;
       //$startNow = 'true'; -- setting start now to false will mean the main transaction doesn't happen!
-      $recurAmount = sprintf('%01.2f', $params['amount']);
+      $recurAmount = sprintf('%01.2f', $amount);
       //Create an array with the recur variables
       $recurArray = array(
         'recur_unit' => $recurUnit,
