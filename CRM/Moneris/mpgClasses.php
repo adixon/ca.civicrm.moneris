@@ -9,7 +9,7 @@ class mpgGlobals {
     'MONERIS_PROTOCOL' => 'https',
     'MONERIS_HOST' => array(
       'test' => 'esqa.moneris.com',
-      'prod' => 'es.moneris.com',
+      'prod' => 'www3.moneris.com',
     ),
     'MONERIS_PORT' => '443',
     'MONERIS_FILE' => '/gateway2/servlet/MpgRequest',
