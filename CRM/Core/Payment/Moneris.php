@@ -16,7 +16,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
   CONST MONERIS_API_TRANSACTION_TYPE_AUTH = '01';
   CONST MONERIS_API_TRANSACTION_TYPE_CAPTURE = '02';
   CONST MONERIS_API_TRANSACTION_TYPE_REFUND = '04';
-
+  CONST MONERIS_DO_RECURRING = 1;
   /**
    * We only need one instance of this object. So we use the singleton
    * pattern and cache the instance in this variable
@@ -187,7 +187,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $params['gross_amount'] = $mpgResponse->getTransAmount();
     // add a recurring payment schedule if requested
     // NOTE: recurring payments will be scheduled for the 20th, TODO: make configurable
-    if ($isRecur) {
+    if ($isRecur && MONERIS_DO_RECURRING) {
       //Recur Variables
       $recurUnit     = $params['frequency_unit'];
       $recurInterval = $params['frequency_interval'];
