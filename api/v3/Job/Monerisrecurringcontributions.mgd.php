@@ -6,7 +6,7 @@
 return array (
   0 => 
   array (
-    'name' => 'Cron:Job.MonerisRecurringContributionsAuto',
+    'name' => 'Cron:Job.Monerisrecurringcontributions',
     'entity' => 'Job',
     'params' => 
     array (
@@ -15,7 +15,7 @@ return array (
       'description' => 'Auto generate contribution records for Moneris recurring contributions',
       'run_frequency' => 'Daily',
       'api_entity' => 'Job',
-      'api_action' => 'MonerisRecurringContributions',
+      'api_action' => 'monerisrecurringcontributions',
       'parameters' => '',
       'is_active' => 0,
     ),

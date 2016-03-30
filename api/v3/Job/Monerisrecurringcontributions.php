@@ -163,7 +163,8 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
     $hash = md5(uniqid(rand(), true));
     $contribution_recur_id    = $dao->id;
     $source = "$payment_processor Recurring Contribution (id=$contribution_recur_id)"; 
-    $receive_date = date("YmdHis"); // i.e. now
+    $receive_ts = (!empty($dao->next_sched_contribution_date)) ? strtotime($dao->next_sched_contribution_date) : time();
+    $receive_date = date("YmdHis",$receive_ts); // i.
     // check if we already have an error
     $errors = array();
     $contribution = array(
@@ -181,7 +182,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
       'payment_processor'   => $dao->payment_processor_id,
       'is_test'        => $dao->is_test, /* propagate the is_test value from the parent contribution */
     );
-    $get_from_original = array('contribution_campaign_id','amount_level');
+    $get_from_original = array('contribution_campaign_id','amount_level','custom_107');
     foreach($get_from_original as $field) {
       if (isset($original_contribution[$field])) {
         $contribution[$field] = $original_contribution[$field];
@@ -212,8 +213,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
     //$mem_end_date = $member_dao->end_date;
     // $temp_date = strtotime($dao->next_sched_contribution);
     /* calculate the next collection date. You could use the previous line instead if you wanted to catch up with missing contributions instead of just moving forward from the present */
-    $temp_date = time();
-    $next_collectionDate = strtotime ("+$dao->frequency_interval $dao->frequency_unit", $temp_date);
+    $next_collectionDate = strtotime ("+$dao->frequency_interval $dao->frequency_unit", $receive_ts);
     $next_collectionDate = date('YmdHis', $next_collectionDate);
 
     CRM_Core_DAO::executeQuery("
