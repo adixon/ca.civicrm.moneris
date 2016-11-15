@@ -94,7 +94,7 @@ function moneris_civicrm_managed(&$entities) {
       'class_name' => 'Payment_Moneris',
       'billing_mode' => 'form',
       'user_name_label' => 'User Name',
-      'password_label' => 'Password',
+      'password_label' => 'API Token',
       'url_site_default' => 'https://www3.moneris.com/',
       'url_recur_default' => 'https://esqa.moneris.com/',
       'url_site_test_default' => 'https://esqa.moneris.com/',
