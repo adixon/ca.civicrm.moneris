@@ -112,6 +112,34 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
         AND (NOT(cr.end_date IS NULL) AND cr.end_date <= NOW())';
   $dao = CRM_Core_DAO::executeQuery($update,$args);
 
+  // Fourth, Update next sechudled date if empty and status is in-progress
+  $update = "SELECT cr.id, c.receive_date as 'latest_payment',
+            CASE cr.frequency_unit
+              WHEN 'year'  THEN DATE_ADD(c.receive_date, INTERVAL cr.frequency_interval YEAR)
+              WHEN 'month' THEN DATE_ADD(c.receive_date, INTERVAL cr.frequency_interval MONTH)
+              WHEN 'day'   THEN DATE_ADD(c.receive_date, INTERVAL cr.frequency_interval DAY)
+              WHEN 'week'  THEN DATE_ADD(c.receive_date, INTERVAL cr.frequency_interval WEEK)
+            END AS 'next_payment_date'
+
+            FROM civicrm_contribution_recur cr 
+            INNER JOIN (select id, contribution_recur_id , max(receive_date) as 'receive_date' from civicrm_contribution where contribution_recur_id is not null group by contribution_recur_id )  c ON cr.id = c.contribution_recur_id 
+            INNER JOIN civicrm_payment_processor pp ON cr.payment_processor_id = pp.id 
+            WHERE 
+              (pp.class_name = %1)
+              AND (cr.installments = 0) 
+              AND (cr.contribution_status_id IN (5)) 
+              AND cr.next_sched_contribution_date IS NULL
+              AND cr.cancel_date IS NULL 
+            GROUP BY c.contribution_recur_id
+      ";
+  $dao = CRM_Core_DAO::executeQuery($update, $args);
+  while ($dao->fetch()) {
+    $nextPaymentDate = $dao->next_payment_date;
+    if ($nextPaymentDate) {
+      $updateDate = "UPDATE civicrm_contribution_recur SET next_sched_contribution_date = '{$nextPaymentDate}' WHERE id =". $dao->id;
+      CRM_Core_DAO::executeQuery($updateDate);
+    }
+  }
   // Now we're ready to create the payment records
   // Select the ongoing recurring payments for Moneris where the next scheduled contribution date (NSCD) is before the end of of the current day
   $select = 'SELECT cr.*, pp.class_name as pp_class_name, pp.url_site as url_site, pp.is_test 
