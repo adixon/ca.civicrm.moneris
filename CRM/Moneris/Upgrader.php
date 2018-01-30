@@ -10,7 +10,7 @@ class CRM_Moneris_Upgrader extends CRM_Moneris_Upgrader_Base {
 
   /**
    * Run an external SQL script when the module is installed
-   */
+   *
   public function install() {
     $this->executeSqlFile('sql/install.sql');
   }
