@@ -158,7 +158,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $mpgRequest = new mpgRequest($mpgTxn);
     // watchdog('moneris_civicrm_ca', 'Request: <pre>!request</pre>', array('!request' => print_r($mpgRequest, TRUE)), WATCHDOG_NOTICE);
     // create mpgHttpsPost object which does an https post ##
-    // extra 'server' parameter added to library 
+    // extra 'server' parameter added to library
     $mpgHttpPost = new mpgHttpsPost($this->_profile['storeid'], $this->_profile['apitoken'], $mpgRequest, $this->_profile['server']);
     // get an mpgResponse object
     $mpgResponse = $mpgHttpPost->getMpgResponse();
@@ -193,7 +193,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
       $recurInterval = $params['frequency_interval'];
       $day           = 60 * 60 * 24;
       $next          = time();
-      // earliest start date is tomorrow 
+      // earliest start date is tomorrow
       do {
         $next = $next + $day;
         $date = getdate($next);
@@ -318,7 +318,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
   function checkConfig() {
     $error = array();
 
-    if (empty($this->_paymentProcessor['signature'])) {
+    if (empty($this->_paymentProcessor['user_name'])) {
       $error[] = ts('Store ID is not set in the Administer CiviCRM &raquo; System Settings &raquo; Payment Processors.');
     }
 
