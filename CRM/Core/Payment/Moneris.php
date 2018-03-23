@@ -42,7 +42,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $config = CRM_Core_Config::singleton();
     // live or test
     $this->_profile['server'] = (('live' == $mode) ? 'prod' : 'test');
-    $this->_profile['storeid'] = $this->_paymentProcessor['signature'];
+    $this->_profile['storeid'] = $this->_paymentProcessor['user_name'];
     $this->_profile['apitoken'] = $this->_paymentProcessor['password'];
     $currencyID = $config->defaultCurrency;
     if ('CAD' != $currencyID) {
