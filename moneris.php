@@ -93,7 +93,7 @@ function moneris_civicrm_managed(&$entities) {
       'description' => 'Moneris credit card payment processor.',
       'class_name' => 'Payment_Moneris',
       'billing_mode' => 'form',
-      'user_name_label' => 'User Name',
+      'user_name_label' => 'Store ID',
       'password_label' => 'API Token',
       'url_site_default' => 'https://www3.moneris.com/',
       'url_recur_default' => 'https://www3.moneris.com/',
