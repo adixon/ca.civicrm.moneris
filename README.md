@@ -3,6 +3,9 @@ ca.civicrm.moneris
 
 Replacement to the old core CiviCRM Moneris plugin.
 
+Warning: after updating to version 1.1, copy the store id from the lower text area to the top text field (both are still labelled store id).
+
+
 Notes:
 
 1. You don't actually need to get a Moneris merchant account to test it out, but obviously for production you do. The Moneris test environment is located at [https://esqa.moneris.com/](https://esqa.moneris.com/). The credentials and instructions for logging in are on that page. When you use your contributions pages in 'Test Drive' mode, the transactions will be recorded here. Note that this test environment is shared by all developers testing the Moneris API, so don't send through any personal data.
