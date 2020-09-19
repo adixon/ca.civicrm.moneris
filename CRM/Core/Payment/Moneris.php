@@ -7,6 +7,9 @@
  * Todo: provide option to use the US mpg version
  *
  */
+
+use Civi\Payment\Exception\PaymentProcessorException;
+
 class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
 
   CONST PAYMENT_STATUS_MONERIS_AUTHORISED = 'moneris_authorised';
@@ -46,7 +49,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $this->_profile['apitoken'] = $this->_paymentProcessor['password'];
     $currencyID = $config->defaultCurrency;
     if ('CAD' != $currencyID) {
-      return self::error('Invalid configuration:' . $currencyID . ', you must use currency $CAD with Moneris');
+      throw new PaymentProcessorException('Invalid configuration:' . $currencyID . ', you must use currency $CAD with Moneris', 9002);
       // Configuration error: default currency must be CAD
     }
   }
@@ -72,10 +75,10 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     // watchdog('moneris_civicrm_ca', 'Params: <pre>!params</pre>', array('!params' => print_r($params, TRUE)), WATCHDOG_NOTICE);
     //make sure i've been called correctly ...
     if (!$this->_profile) {
-      return self::error('Unexpected error, missing profile');
+      throw new PaymentProcessorException('Unexpected error, missing profile', 9002);
     }
     if ($params['currencyID'] != 'CAD') {
-      return self::error('Invalid currency selection, must be $CAD');
+      throw new PaymentProcessorException('Invalid currency selection, must be $CAD', 9002);
     }
     $isRecur =  CRM_Utils_Array::value('is_recur', $params) && $params['contributionRecurID'];
     // require moneris supplied api library
@@ -166,17 +169,17 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $params['trxn_result_code'] = $mpgResponse->getResponseCode();
     if (self::isError($mpgResponse)) {
       if ($params['trxn_result_code']) {
-        return self::error($mpgResponse);
+        throw new PaymentProcessorException($mpgResponse->getMessage(), $params['trxn_result_code']);
       }
       else {
-        return self::error('No reply from server - check your settings &/or try again');
+        throw new PaymentProcessorException('No reply from server - check your settings &/or try again', 9002);
       }
     }
     /* Check for application errors */
 
     $result = self::checkResult($mpgResponse);
     if (is_a($result, 'CRM_Core_Error')) {
-      return $result;
+      throw new PaymentProcessorException($error->getMessage(), 9002);
     }
 
     /* Success */
@@ -184,7 +187,6 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $params['trxn_result_code'] = (integer) $mpgResponse->getResponseCode();
     // todo: above assignment seems to be ignored, not getting stored in the civicrm_financial_trxn table
     $params['trxn_id'] = $mpgResponse->getTxnNumber();
-    $params['gross_amount'] = $mpgResponse->getTransAmount();
     // add a recurring payment schedule if requested
     // NOTE: recurring payments will be scheduled for the 20th, TODO: make configurable
     if ($isRecur && MONERIS_DO_RECURRING) {
@@ -228,22 +230,21 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
       $params['trxn_result_code'] = $mpgResponse->getResponseCode();
       if (self::isError($mpgResponse)) {
         if ($params['trxn_result_code']) {
-          return self::error($mpgResponse);
+          throw new PaymentProcessorException($mpgResponse->getMessage(), $params['trxn_result_code']);
         }
         else {
-          return self::error('No reply from server - check your settings &/or try again');
+          throw new PaymentProcessorException('No reply from server - check your settings &/or try again');
         }
       }
       /* Check for application errors */
       $result = self::checkResult($mpgResponse);
       if (is_a($result, 'CRM_Core_Error')) {
-        return $result;
+        throw new PaymentProcessorException($result->getMessage(), 9002);
       }
 
       /* Success */
       $params['trxn_result_code'] = (integer) $mpgResponse->getResponseCode();
       $params['trxn_id'] = $mpgResponse->getTxnNumber();
-      $params['gross_amount'] = $mpgResponse->getTransAmount();
     }
     return $params;
   }
@@ -260,53 +261,6 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
       return FALSE;
     }
     return TRUE;
-  }
-
-  // ignore for now, more elaborate error handling later.
-  function &checkResult(&$response) {
-    return $response;
-
-    $errors = $response->getErrors();
-    if (empty($errors)) {
-      return $result;
-    }
-
-    $e = CRM_Core_Error::singleton();
-    if (is_a($errors, 'ErrorType')) {
-      $e->push($errors->getErrorCode(),
-        0, NULL,
-        $errors->getShortMessage() . ' ' . $errors->getLongMessage()
-      );
-    }
-    else {
-      foreach ($errors as $error) {
-        $e->push($error->getErrorCode(),
-          0, NULL,
-          $error->getShortMessage() . ' ' . $error->getLongMessage()
-        );
-      }
-    }
-    return $e;
-  }
-
-  function &error($error = NULL) {
-    $e = CRM_Core_Error::singleton();
-    if (is_object($error)) {
-      $e->push($error->getResponseCode(),
-        0, NULL,
-        $error->getMessage()
-      );
-    }
-    elseif (is_string($error)) {
-      $e->push(9002,
-        0, NULL,
-        $error
-      );
-    }
-    else {
-      $e->push(9001, 0, NULL, "Unknown System Error.");
-    }
-    return $e;
   }
 
   /**
