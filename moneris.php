@@ -12,17 +12,6 @@ function moneris_civicrm_config(&$config) {
 }
 
 /**
- * Implementation of hook_civicrm_xmlMenu
- *
- * @param $files array(string)
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_xmlMenu
- */
-function moneris_civicrm_xmlMenu(&$files) {
-  _moneris_civix_civicrm_xmlMenu($files);
-}
-
-/**
  * Implementation of hook_civicrm_install
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_install
@@ -32,30 +21,12 @@ function moneris_civicrm_install() {
 }
 
 /**
- * Implementation of hook_civicrm_uninstall
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_uninstall
- */
-function moneris_civicrm_uninstall() {
-  return _moneris_civix_civicrm_uninstall();
-}
-
-/**
  * Implementation of hook_civicrm_enable
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_enable
  */
 function moneris_civicrm_enable() {
   return _moneris_civix_civicrm_enable();
-}
-
-/**
- * Implementation of hook_civicrm_disable
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_disable
- */
-function moneris_civicrm_disable() {
-  return _moneris_civix_civicrm_disable();
 }
 
 /**
@@ -70,7 +41,7 @@ function moneris_civicrm_disable() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_upgrade
  */
 function moneris_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
-  return _moneris_civix_civicrm_upgrade($op, $queue);
+  return;
 }
 
 /**
@@ -103,29 +74,7 @@ function moneris_civicrm_managed(&$entities) {
       'payment_type' => 1,
     ),
   );
-  return _moneris_civix_civicrm_managed($entities);
-}
-
-/**
- * Implementation of hook_civicrm_caseTypes
- *
- * Generate a list of case-types
- *
- * Note: This hook only runs in CiviCRM 4.4+.
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_caseTypes
- */
-function moneris_civicrm_caseTypes(&$caseTypes) {
-  _moneris_civix_civicrm_caseTypes($caseTypes);
-}
-
-/**
- * Implementation of hook_civicrm_alterSettingsFolders
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_alterSettingsFolders
- */
-function moneris_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
-  _moneris_civix_civicrm_alterSettingsFolders($metaDataFolders);
+  return;
 }
 
 function _moneris_civicrm_nscd_fid() {
@@ -212,3 +161,11 @@ function moneris_civicrm_pre($op, $objectName, $objectId, &$params) {
   }
 }
 
+// /**
+//  * Implements hook_civicrm_entityTypes().
+//  *
+//  * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_entityTypes
+//  */
+// function moneris_civicrm_entityTypes(&$entityTypes) {
+//   _moneris_civix_civicrm_entityTypes($entityTypes);
+// }
