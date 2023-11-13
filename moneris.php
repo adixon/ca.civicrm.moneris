@@ -51,6 +51,7 @@ function moneris_civicrm_managed(&$entities) {
       'billing_mode' => 'form',
       'user_name_label' => 'Store ID',
       'password_label' => 'API Token',
+      'signature_label' => '',
       'url_site_default' => 'https://www3.moneris.com/',
       'url_recur_default' => 'https://www3.moneris.com/',
       'url_site_test_default' => 'https://esqa.moneris.com/',
