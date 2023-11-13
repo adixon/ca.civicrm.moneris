@@ -235,7 +235,7 @@ function civicrm_api3_job_monerisrecurringcontributions($params) {
     /* create the contribution record */
     $result = civicrm_api('contribution', 'create', $contribution);
     if ($result['is_error']) {
-        $errors[] = $result['error_message'];
+      $errors[] = $result['error_message'];
     }
 
     //$mem_end_date = $member_dao->end_date;
