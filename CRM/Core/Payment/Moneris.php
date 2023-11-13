@@ -71,7 +71,7 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     return self::$_singleton[$processorName];
   }
 
-  function doDirectPayment(&$params) {
+  function doPayment(&$params) {
     // watchdog('moneris_civicrm_ca', 'Params: <pre>!params</pre>', array('!params' => print_r($params, TRUE)), WATCHDOG_NOTICE);
     //make sure i've been called correctly ...
     if (!$this->_profile) {
