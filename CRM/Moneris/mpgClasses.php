@@ -2863,6 +2863,10 @@ class mpgCustInfo
         	{
           		$data=$template[$tag];
 
+          		if(empty($this->level3data[$tag]))
+           		{
+            		continue;
+           		}
           		if(! count($this->level3data[$tag]))
            		{
             		continue;
@@ -3238,6 +3242,7 @@ class Transaction
 	private function toXML_low($dataArray, $root)
 	{
 		$xmlRoot = "";
+		if (empty($dataArray)) return $xmlRoot;
 		
 		foreach ($dataArray as $key => $value)
 		{
