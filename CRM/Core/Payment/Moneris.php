@@ -29,6 +29,9 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
    */
   static private $_singleton = NULL;
 
+  /* store some useful stuff in private properties */
+  private $_profile = [];
+
   /**
    * Constructor
    *
@@ -71,9 +74,9 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     return self::$_singleton[$processorName];
   }
 
-  function doPayment(&$params) {
+  function doPayment(&$params, $component = 'contribute') {
     // watchdog('moneris_civicrm_ca', 'Params: <pre>!params</pre>', array('!params' => print_r($params, TRUE)), WATCHDOG_NOTICE);
-    //make sure i've been called correctly ...
+    // make sure i've been called correctly ...
     if (!$this->_profile) {
       throw new PaymentProcessorException('Unexpected error, missing profile', 9002);
     }
@@ -83,7 +86,6 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     $isRecur =  CRM_Utils_Array::value('is_recur', $params) && $params['contributionRecurID'];
     // require moneris supplied api library
     require_once 'CRM/Moneris/mpgClasses.php';
-
     /* unused params: cvv not yet implemented, payment action ingored (should test for 'Sale' value?)
         [cvv2] => 000
         [ip_address] => 192.168.0.103
@@ -94,6 +96,12 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     //this code based on Moneris example code #
     //create an mpgCustInfo object
     $mpgCustInfo = new mpgCustInfo();
+    /* unused params: cvv not yet implemented, payment action ingored (should test for 'Sale' value?)
+        [cvv2] => 000
+        [ip_address] => 192.168.0.103
+        [payment_action] => Sale
+        [contact_type] => Individual
+        [geo_coord_id] => 1 */
     //call set methods of the mpgCustinfo object
     if (empty($params['email'])) {
       if (!empty($params['contactID'])) {
@@ -151,18 +159,20 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
     // Allow further manipulation of params via custom hooks
     CRM_Utils_Hook::alterPaymentProcessorParams($this, $params, $txnArray);
 
-    //create a transaction object passing the hash created above
+    // create a transaction object passing the hash created above
+    // watchdog('moneris_civicrm_ca', 'txnArray: <pre>!txnarray</pre>', array('!txnarray' => print_r($txnArray, TRUE)), WATCHDOG_NOTICE);
     $mpgTxn = new mpgTransaction($txnArray);
-
     //use the setCustInfo method of mpgTransaction object to
     //set the customer info (level 3 data) for this transaction
     $mpgTxn->setCustInfo($mpgCustInfo);
     //create a mpgRequest object passing the transaction object
     $mpgRequest = new mpgRequest($mpgTxn);
+    $mpgRequest->setProcCountryCode("CA"); // if anyone wants to get Moneris working in other countries, this will need to change!
+    $mpgRequest->setTestMode($this->_profile['server'] == 'test');
     // watchdog('moneris_civicrm_ca', 'Request: <pre>!request</pre>', array('!request' => print_r($mpgRequest, TRUE)), WATCHDOG_NOTICE);
     // create mpgHttpsPost object which does an https post ##
     // extra 'server' parameter added to library 
-    $mpgHttpPost = new mpgHttpsPost($this->_profile['storeid'], $this->_profile['apitoken'], $mpgRequest, $this->_profile['server']);
+    $mpgHttpPost = new mpgHttpsPost($this->_profile['storeid'], $this->_profile['apitoken'], $mpgRequest);
     // get an mpgResponse object
     $mpgResponse = $mpgHttpPost->getMpgResponse();
     // watchdog('moneris_civicrm_ca', 'Response: <pre>!response</pre>', array('!response' => print_r($mpgResponse, TRUE)), WATCHDOG_NOTICE);
@@ -175,17 +185,9 @@ class CRM_Core_Payment_Moneris extends CRM_Core_Payment {
         throw new PaymentProcessorException('No reply from server - check your settings &/or try again', 9002);
       }
     }
-    /* Check for application errors */
 
-    $result = self::checkResult($mpgResponse);
-    if (is_a($result, 'CRM_Core_Error')) {
-      throw new PaymentProcessorException($error->getMessage(), 9002);
-    }
-
-    /* Success */
-
+    /* else, success */
     $params['trxn_result_code'] = (integer) $mpgResponse->getResponseCode();
-    // todo: above assignment seems to be ignored, not getting stored in the civicrm_financial_trxn table
     $params['trxn_id'] = $mpgResponse->getTxnNumber();
     // add a recurring payment schedule if requested
     // NOTE: recurring payments will be scheduled for the 20th, TODO: make configurable
