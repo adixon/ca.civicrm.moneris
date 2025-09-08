@@ -1,3 +1,5 @@
+This project has been moved to https://lab.civicrm.org/extensions/moneris where it is minimally maintained.
+
 ca.civicrm.moneris
 ==================
 
